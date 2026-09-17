@@ -1,0 +1,3 @@
+STUDENT_NAME = "Левченко Андрій"
+GROUP_NAME = "КБ-209"
+VARIANT_NUMBER = 9
