@@ -1,4 +1,12 @@
 import string
+import random
+from rich.console import Console
+from rich.table import Table
+import os
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from shared.student import GROUP_NAME, STUDENT_NAME, VARIANT_NUMBER
 
 UPPERCASE_CHARS = set(string.ascii_uppercase)
 SPECIAL_CHARS = set(string.punctuation)
@@ -28,8 +36,8 @@ forbidden_passwords = {"plain", "member", "regular", "ordinary", "usual", "user"
 
 
 def check_passwd(password):
-    if password in forbidden_passwords or len(password) < 8:
-        return False
+    if password in forbidden_passwords or len(password) < criteria["min_length"]:
+        return ("Forbidden password")
 
     big = 0
     spec = 0
@@ -43,11 +51,34 @@ def check_passwd(password):
         if char in DIGIT_CHARS:
             digit += 1
 
-    return big > 0 and spec > 0 and digit > 0
-
-
-for passwd in passwords:
-    if check_passwd(passwd):
-        print(f"{passwd} -> Valid")
+    has_upper = big > 0
+    has_digit = digit > 0
+    has_special = spec > 0
+    
+    all_met = has_upper and has_digit and has_special
+    
+    if all_met and len(password) >= (criteria["min_length"] + 4) and passwords.count(password) < 2:
+        return ("Very strong password")
+    elif all_met:
+        return ("Strong password")
+    elif len(password) >= criteria["min_length"] and ((has_upper and has_digit) or (has_digit and has_special) or (has_upper and has_special)):
+        return ("Medium password")
     else:
-        print(f"{passwd} -> Invalid")
+        return ("Weak password")
+
+
+
+passwords.extend(random.sample(passwords, 3))
+
+table = Table(title="Результати перевірки паролів")
+table.add_column("Пароль", style="cyan", no_wrap=True)
+table.add_column("Рівень надійності", style="green")
+
+for pwd in passwords:
+    result = check_passwd(pwd)
+    table.add_row(pwd, result)
+
+console = Console()
+if __name__ == "__main__":
+    console.print(f"[bold]Студент:[/] {STUDENT_NAME} | [bold]Група:[/] {GROUP_NAME} | [bold]Варіант:[/] {VARIANT_NUMBER}\n")
+console.print(table)

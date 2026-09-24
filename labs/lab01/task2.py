@@ -1,3 +1,15 @@
+<<<<<<< HEAD
+=======
+import os
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from shared.student import GROUP_NAME, STUDENT_NAME, VARIANT_NUMBER
+
+if __name__ == "__main__":
+    print(f"Студент: {STUDENT_NAME} | Група: {GROUP_NAME} | Варіант: {VARIANT_NUMBER}\n")
+
+>>>>>>> 300270f (1,2 tasks update)
 users = {
     "cloud_architect": {
         "role": "cloud_security",
@@ -57,6 +69,7 @@ for key, value in resources:
     print(f"{key}: {security_levels[value - 1]}")
 
 
+<<<<<<< HEAD
 def check_res():
     for key, value in users.items():
         for rsr, lvl in resources:
@@ -75,3 +88,27 @@ def check_res():
 
 
 check_res()
+=======
+def check_res(user, info):
+    for rsr, lvl in resources:
+        if user not in users:
+            print(f"user=[{user}] resource=[{rsr}] -> DENY (User not found)")
+        elif user in blocked_users:
+            print(f"user=[{user}] resource=[{rsr}] -> DENY (User is blocked)")
+        elif not info["active"]:
+            print(f"user=[{user}] resource=[{rsr}] -> DENY (Account inactive)")
+        elif info["clearance"] >= lvl:
+            print(f"user=[{user}] resource=[{rsr}] -> ALLOW")
+        else:
+            print(f"user=[{user}] resource=[{rsr}] -> DENY (Insufficient clearance)")
+                
+            
+        
+
+
+
+for usname, info in users.items():
+    check_res(usname, info)
+
+check_res("unknown_user", {})
+>>>>>>> 300270f (1,2 tasks update)
