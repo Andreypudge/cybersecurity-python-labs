@@ -16,6 +16,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 USERS_CSV = os.path.join(DATA_DIR, "users.csv")
 LOG_JSON = os.path.join(DATA_DIR, "log.json")
 SALT = f"{VARIANT_NUMBER:05d}"
+MIN_LEN = 13
 
 
 class ValidationError(Exception):
@@ -24,8 +25,8 @@ class ValidationError(Exception):
 def generate_hash(password: str, salt: str = SALT) -> str:
     if not password or not salt:
         raise ValueError("Password and salt must not be empty.")
-    if len(password) < 13:
-        raise ValidationError("Password must be 13 or more symbols.")
+    if len(password) < MIN_LEN:
+        raise ValidationError(f"Password must be {MIN_LEN} or more symbols.")
 
     data = (password + salt).encode()
     return hashlib.sha224(data).hexdigest()
@@ -76,22 +77,30 @@ def log_event(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         result = func(*args, **kwargs)
-        if result:
-            status = "success"
-        else:
-            status = "failure"
+        status = "success" if result else "failure"
         username = args[0] if args else kwargs.get("username", "unknown")
         safe_args = [args[0], "***"] if len(args) > 1 else list(args)
-        log_entry = {"event": func.__name__, "user": username, "result": status, "timestamp": datetime.now(timezone.utc).isoformat(), "args": safe_args, "kwargs": kwargs}
-        if not os.path.exists(LOG_JSON):
-            logs = []
-        else:
-            with open(LOG_JSON, "r", encoding="utf-8") as f:
-                logs = json.load(f)
+
+        log_entry = {"event": func.__name__, "user": username, "result": status, "timestamp": datetime.now(timezone.utc).isoformat(), "args": safe_args, "kwargs": kwargs,}
+
+        logs = []
+        if os.path.exists(LOG_JSON):
+            try:
+                with open(LOG_JSON, "r", encoding="utf-8") as f:
+                    logs = json.load(f)
+            except (PermissionError, IOError, json.JSONDecodeError) as file_err:
+                print(f"Помилка читання файлу журналу: {file_err}")
+
         logs.append(log_entry)
-        with open(LOG_JSON, "w", encoding="utf-8") as f:
-            json.dump(logs, f, ensure_ascii=False, indent=4)
+
+        try:
+            with open(LOG_JSON, "w", encoding="utf-8") as f:
+                json.dump(logs, f, ensure_ascii=False, indent=4)
+        except (PermissionError, IOError) as write_err:
+            print(f"Помилка запису в журнал: {write_err}")
+
         return result
+
     return wrapper
 
 
@@ -102,7 +111,7 @@ def login(username: str, password: str):
         raise ValueError("Login or password must not be empty")
     users_dict = dict(load_users())
     stored_hash = users_dict.get(username)
-    if not stored_hash or len(password) < 13:
+    if not stored_hash or len(password) < MIN_LEN:
         return False
     else:
         return generate_hash(password, SALT) == stored_hash
