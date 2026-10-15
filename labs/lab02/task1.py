@@ -3,7 +3,7 @@ import hmac
 import os
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 PBKDF2_ITERATIONS = 100_000
@@ -11,16 +11,14 @@ SESSION_TIMEOUT_SEC = 900
 
 
 class User:
-    def __init__(
-        self, username: str, email: str, role: str = "user", active: bool = True
-    ):
+    def __init__(self, username: str, email: str, role: str = "user", active: bool = True):
         self.username = username
         self.email = email
         self.role = role
         self.active = active
         self.__password_salt: bytes | None = None
         self.__password_hash: bytes | None = None
-
+        
     @property
     def email(self) -> str:
         return self._email
@@ -35,28 +33,22 @@ class User:
 
     def set_password(self, password: str) -> None:
         self.__password_salt = os.urandom(16)
-        self.__password_hash = hashlib.pbkdf2_hmac(
-            "sha256", password.encode("utf-8"), self.__password_salt, PBKDF2_ITERATIONS
-        )
+        self.__password_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), self.__password_salt, PBKDF2_ITERATIONS)
+
 
     def check_password(self, password: str) -> bool:
         if self.__password_hash is not None and self.__password_salt is not None:
-            password_hash = hashlib.pbkdf2_hmac(
-                "sha256",
-                password.encode("utf-8"),
-                self.__password_salt,
-                PBKDF2_ITERATIONS,
-            )
+            password_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), self.__password_salt, PBKDF2_ITERATIONS)
             return hmac.compare_digest(self.__password_hash, password_hash)
         else:
             return False
-
+        
     def deactivate(self) -> None:
         self.active = False
 
     def __str__(self) -> str:
         return f"User({self.username}, email={self.email}, role={self.role}, active={self.active})"
-
+    
 
 class Admin(User):
     def __init__(self, username: str, email: str, permissions: set[str] | None = None):
@@ -73,9 +65,9 @@ class Admin(User):
         return permission in self.permissions
 
     def __str__(self) -> str:
-        return f"User({self.username}, email={self.email}, role={self.role}, active={self.active}, permissions={self.permissions})"
-
-
+        return f"Admin({self.username}, email={self.email}, role={self.role}, active={self.active}, permissions={self.permissions})"
+    
+    
 class Session:
     def __init__(self, ip: str):
         self.ip = ip
@@ -84,15 +76,13 @@ class Session:
 
     def touch(self) -> None:
         self.last_activity = datetime.now(timezone.utc)
-
+            
     def is_active(self, timeout_sec: int) -> bool:
         if timeout_sec <= 0:
             raise ValueError("Timeout must be bigger than 0")
-
-        elapsed_sec = (datetime.now(timezone.utc) - self.last_activity).total_seconds()
-        return elapsed_sec <= timeout_sec
-
-
+        return (datetime.now(timezone.utc) - self.last_activity) <= timedelta(seconds=timeout_sec)
+        
+        
 @dataclass
 class AuditEntry:
     timestamp: datetime
@@ -114,7 +104,8 @@ class AuditLog:
 
     def show_all(self) -> list[AuditEntry]:
         return self.entries
-
+    
+    
 
 class UserAccount:
     def __init__(self, user: User, log: AuditLog | None = None):
@@ -123,11 +114,7 @@ class UserAccount:
         self.log: AuditLog = log if log is not None else AuditLog()
 
     def login(self, username: str, password: str, ip: str) -> bool:
-        if (
-            self.user.username == username
-            and self.user.active
-            and self.user.check_password(password)
-        ):
+        if self.user.username == username and self.user.active and self.user.check_password(password):
             self.session = Session(ip)
             self.session.touch()
             self.log.add_log(self.user.username, "login_success")
@@ -138,6 +125,7 @@ class UserAccount:
 
     def is_authenticated(self) -> bool:
         return self.session is not None and self.session.is_active(SESSION_TIMEOUT_SEC)
+
 
     def logout(self) -> None:
         self.session = None
@@ -159,7 +147,7 @@ class UserAccount:
                 self.user = value
             else:
                 raise TypeError("Value must be an instance of User")
-
+                
         elif key == "session":
             if value is None or isinstance(value, Session):
                 self.session = value
@@ -171,6 +159,6 @@ class UserAccount:
                 self.log = value
             else:
                 raise TypeError("Value must be an instance of Log")
-
+        
         else:
             raise KeyError(f"Invalid key: {key}")
